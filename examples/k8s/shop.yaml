@@ -1,0 +1,64 @@
+# A small, realistic namespace with a mix of covered and uncovered workloads.
+# Run: k8s-netpol-coverage audit examples/k8s
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storefront
+  namespace: shop
+spec:
+  selector:
+    matchLabels:
+      app: storefront
+  template:
+    metadata:
+      labels:
+        app: storefront
+        tier: web
+    spec:
+      containers:
+        - name: web
+          image: ghcr.io/example/storefront:2.3
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: orders-db
+  namespace: shop
+spec:
+  selector:
+    matchLabels:
+      app: orders-db
+  serviceName: orders-db
+  template:
+    metadata:
+      labels:
+        app: orders-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+---
+# Only the storefront is covered; orders-db is left wide open, and the
+# namespace has no default-deny, so both gaps get reported.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-storefront
+  namespace: shop
+spec:
+  podSelector:
+    matchLabels:
+      app: storefront
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: ingress-gateway
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: orders-db

@@ -1,0 +1,12 @@
+# Built binaries — anchored to the repo root with a leading slash so the
+# pattern never matches a same-named source directory and drops its main.go.
+/k8s-netpol-coverage
+/knc
+*.exe
+
+# Test / coverage artifacts
+*.out
+coverage.txt
+
+# Always track fixtures.
+!testdata/**

@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ["1.22.x", "1.23.x"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+          cache: true
+      - name: go vet
+        run: go vet ./...
+      - name: go test
+        run: go test -race ./...
+      - name: go build
+        run: go build ./...
+      - name: smoke test the CLI
+        run: |
+          go build -o k8s-netpol-coverage .
+          ./k8s-netpol-coverage audit examples/k8s
+          set +e
+          ./k8s-netpol-coverage audit examples/k8s --fail-on high
+          code=$?
+          set -e
+          test "$code" -eq 3
