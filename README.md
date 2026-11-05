@@ -1,7 +1,7 @@
 # k8s-netpol-coverage
 
 [![ci](https://github.com/moveeeax/k8s-netpol-coverage/actions/workflows/ci.yml/badge.svg)](https://github.com/moveeeax/k8s-netpol-coverage/actions/workflows/ci.yml)
-[![Go](https://img.shields.io/badge/go-1.22%2B-00ADD8?logo=go)](https://go.dev)
+[![Go](https://img.shields.io/badge/go-1.26%2B-00ADD8?logo=go)](https://go.dev)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Kubernetes is **default-allow**: a Pod that no `NetworkPolicy` selects accepts
@@ -24,6 +24,8 @@ It parses `Deployment`, `StatefulSet`, `DaemonSet`, `Job`, bare `Pod`, and
 `matchExpressions` selectors and the Kubernetes default `policyTypes` rules.
 
 ## Install
+
+Requires Go 1.26 or newer.
 
 ```sh
 go install github.com/moveeeax/k8s-netpol-coverage@latest
@@ -100,7 +102,7 @@ The SARIF output uploads straight into GitHub code scanning:
 
 ```yaml
 - run: k8s-netpol-coverage audit ./k8s --output sarif --fail-on high > netpol.sarif
-- uses: github/codeql-action/upload-sarif@v3
+- uses: github/codeql-action/upload-sarif@v4
   with:
     sarif_file: netpol.sarif
 ```

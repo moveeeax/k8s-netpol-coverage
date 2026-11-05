@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/moveeeax/k8s-netpol-coverage/internal/model"
-	yamlv3 "gopkg.in/yaml.v3"
+	yamlv3 "go.yaml.in/yaml/v3"
 	k8syaml "sigs.k8s.io/yaml"
 )
 
