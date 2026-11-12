@@ -35,3 +35,9 @@ jobs:
           code=$?
           set -e
           test "$code" -eq 3
+          ./k8s-netpol-coverage trace examples/k8s --from shop/storefront --to shop/orders-db --port 5432
+          set +e
+          ./k8s-netpol-coverage trace examples/k8s --from shop/orders-db --to shop/storefront --port 8080
+          code=$?
+          set -e
+          test "$code" -eq 2

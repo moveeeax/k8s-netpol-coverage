@@ -96,3 +96,42 @@ func equal(a, b []string) bool {
 	}
 	return true
 }
+
+func TestLoadParsesRulesPortsAndNamespaces(t *testing.T) {
+	m := mustLoad(t, "../../testdata/trace")
+	if got := m.NamespaceLabels["monitoring"]["team"]; got != "observability" {
+		t.Errorf("namespace label = %q", got)
+	}
+	var found bool
+	for _, p := range m.Policies {
+		if p.Name != "db-ingress" {
+			continue
+		}
+		found = true
+		if len(p.Ingress) != 2 || len(p.Egress) != 0 {
+			t.Fatalf("db-ingress rules: %d ingress, %d egress", len(p.Ingress), len(p.Egress))
+		}
+		named := p.Ingress[0].Ports[0].Port
+		if named == nil || !named.IsString || named.StrVal != "pg" {
+			t.Errorf("named port not decoded: %+v", named)
+		}
+		ranged := p.Ingress[1].Ports[0]
+		if ranged.Port.IsString || ranged.Port.IntVal != 9100 || ranged.EndPort == nil || *ranged.EndPort != 9200 {
+			t.Errorf("numeric port range not decoded: %+v", ranged)
+		}
+		peer := p.Ingress[1].Peers[0]
+		if peer.NamespaceSelector == nil || peer.PodSelector == nil {
+			t.Errorf("combined namespace+pod peer not decoded: %+v", peer)
+		}
+	}
+	if !found {
+		t.Fatal("db-ingress policy not loaded")
+	}
+	for _, w := range m.Workloads {
+		if w.Kind == "StatefulSet" && w.Name == "db" {
+			if len(w.Ports) != 1 || w.Ports[0].Name != "pg" || w.Ports[0].ContainerPort != 5432 {
+				t.Errorf("container ports = %+v", w.Ports)
+			}
+		}
+	}
+}
