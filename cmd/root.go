@@ -10,7 +10,7 @@ import (
 )
 
 // version is the tool version reported by --version and in JSON/SARIF output.
-const version = "0.2.0"
+const version = "0.3.0"
 
 // errGate signals that findings met or exceeded the --fail-on threshold. It is
 // separate from real runtime errors so we can exit non-zero without noise.
