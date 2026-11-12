@@ -69,8 +69,8 @@ func findLess(a, b Finding) bool {
 	return a.RuleID < b.RuleID
 }
 
-// selects reports whether a policy applies to a workload for a given direction.
-func selects(p model.NetworkPolicy, w model.Workload, direction string) bool {
+// Selects reports whether a policy applies to a workload for a given direction.
+func Selects(p model.NetworkPolicy, w model.Workload, direction string) bool {
 	if p.Namespace != w.Namespace {
 		return false
 	}
@@ -94,10 +94,10 @@ func uncoveredWorkloads(m *Manifests) []Finding {
 	for _, w := range m.Workloads {
 		coveredIn, coveredEg := false, false
 		for _, p := range m.Policies {
-			if selects(p, w, "Ingress") {
+			if Selects(p, w, "Ingress") {
 				coveredIn = true
 			}
-			if selects(p, w, "Egress") {
+			if Selects(p, w, "Egress") {
 				coveredEg = true
 			}
 		}

@@ -19,6 +19,9 @@ import (
 type Manifests struct {
 	Workloads []model.Workload
 	Policies  []model.NetworkPolicy
+	// NamespaceLabels holds the labels of every Namespace document found,
+	// keyed by namespace name. Namespaces without a manifest are absent.
+	NamespaceLabels map[string]map[string]string
 }
 
 // defaultNamespace matches kubectl's behavior for objects with no namespace set.
@@ -146,6 +149,7 @@ func decodeDoc(doc []byte, path string, m *Manifests) error {
 			Name:      c.Metadata.Name,
 			Namespace: ns(c.Metadata.Namespace),
 			PodLabels: c.Spec.Template.Metadata.Labels,
+			Ports:     containerPorts(c.Spec.Template.Spec),
 			File:      path,
 		})
 	case "Pod":
@@ -158,6 +162,7 @@ func decodeDoc(doc []byte, path string, m *Manifests) error {
 			Name:      p.Metadata.Name,
 			Namespace: ns(p.Metadata.Namespace),
 			PodLabels: p.Metadata.Labels,
+			Ports:     containerPorts(p.Spec),
 			File:      path,
 		})
 	case "NetworkPolicy":
@@ -172,8 +177,19 @@ func decodeDoc(doc []byte, path string, m *Manifests) error {
 			PolicyTypes: effectivePolicyTypes(np),
 			HasIngress:  len(np.Spec.Ingress) > 0,
 			HasEgress:   len(np.Spec.Egress) > 0,
+			Ingress:     ingressRules(np),
+			Egress:      egressRules(np),
 			File:        path,
 		})
+	case "Namespace":
+		var n podDoc
+		if err := k8syaml.Unmarshal(doc, &n); err != nil {
+			return err
+		}
+		if m.NamespaceLabels == nil {
+			m.NamespaceLabels = map[string]map[string]string{}
+		}
+		m.NamespaceLabels[n.Metadata.Name] = n.Metadata.Labels
 	}
 	return nil
 }
@@ -198,9 +214,41 @@ func effectivePolicyTypes(np netpolDoc) []string {
 	return types
 }
 
+func containerPorts(spec podSpec) []model.ContainerPort {
+	var out []model.ContainerPort
+	for _, c := range spec.Containers {
+		out = append(out, c.Ports...)
+	}
+	return out
+}
+
+func ingressRules(np netpolDoc) []model.PolicyRule {
+	out := make([]model.PolicyRule, len(np.Spec.Ingress))
+	for i, r := range np.Spec.Ingress {
+		out[i] = model.PolicyRule{Peers: r.From, Ports: r.Ports}
+	}
+	return out
+}
+
+func egressRules(np netpolDoc) []model.PolicyRule {
+	out := make([]model.PolicyRule, len(np.Spec.Egress))
+	for i, r := range np.Spec.Egress {
+		out[i] = model.PolicyRule{Peers: r.To, Ports: r.Ports}
+	}
+	return out
+}
+
+// podSpec is the subset of a PodSpec needed to resolve named ports.
+type podSpec struct {
+	Containers []struct {
+		Ports []model.ContainerPort `json:"ports"`
+	} `json:"containers"`
+}
+
 // podTemplate is the shared spec.template shape of workload controllers.
 type podTemplate struct {
 	Metadata model.ObjectMeta `json:"metadata"`
+	Spec     podSpec          `json:"spec"`
 }
 
 // controllerDoc decodes the common controller shape (Deployment, StatefulSet,
@@ -213,10 +261,12 @@ type controllerDoc struct {
 	} `json:"spec"`
 }
 
-// podDoc decodes a bare Pod, whose labels live on its own metadata.
+// podDoc decodes a bare Pod, whose labels live on its own metadata. It is
+// also used for Namespace documents, which only need metadata.
 type podDoc struct {
 	model.TypeMeta `json:",inline"`
 	Metadata       model.ObjectMeta `json:"metadata"`
+	Spec           podSpec          `json:"spec"`
 }
 
 // netpolDoc decodes a NetworkPolicy manifest.
@@ -224,9 +274,15 @@ type netpolDoc struct {
 	model.TypeMeta `json:",inline"`
 	Metadata       model.ObjectMeta `json:"metadata"`
 	Spec           struct {
-		PodSelector model.LabelSelector      `json:"podSelector"`
-		PolicyTypes []string                 `json:"policyTypes"`
-		Ingress     []map[string]interface{} `json:"ingress"`
-		Egress      []map[string]interface{} `json:"egress"`
+		PodSelector model.LabelSelector `json:"podSelector"`
+		PolicyTypes []string            `json:"policyTypes"`
+		Ingress     []struct {
+			From  []model.PolicyPeer `json:"from"`
+			Ports []model.PolicyPort `json:"ports"`
+		} `json:"ingress"`
+		Egress []struct {
+			To    []model.PolicyPeer `json:"to"`
+			Ports []model.PolicyPort `json:"ports"`
+		} `json:"egress"`
 	} `json:"spec"`
 }
